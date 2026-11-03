@@ -117,17 +117,18 @@ function cal(){
 function shop(){
  const m={};
  for(let i=0;i<7;i++)(S.plan[iso(addD(ws,i))]||[]).forEach(id=>{const r=R(id);if(!r)return;r.ing.forEach(g=>{const n=g.n.trim();if(!n)return;const u=g.u==='-'?'':g.u,k=n.toLowerCase()+'|'+u;m[k]=m[k]||{n,u,a:0};m[k].a+=parseFloat(g.a)||0})});
- const L=Object.entries(m).sort((a,b)=>a[1].n.localeCompare(b[1].n,'de')),wk=iso(ws),X=extra();
+ const wk=iso(ws),A=[];
+ Object.entries(m).forEach(([k,g])=>{const c=S.checked[wk+'|'+k];A.push({n:g.n,h:`<label class="it ${c?'done':''}"><input type="checkbox" ${c?'checked':''} onchange="chk('${wk}|${e(k).replace(/'/g,"&#39;")}',this.checked)"><span>${[g.a?num(g.a):'',g.u,g.n].filter(Boolean).map(e).join(' ')}</span></label>`})});
+ const X=S.extra||[];
+ X.forEach(x=>A.push({n:x.t,h:`<div class="it ${x.d?'done':''}"><input type="checkbox" aria-label="Erledigt" ${x.d?'checked':''} onchange="togX('${x.id}',this.checked)"><span style="flex:1">${e(x.t)}</span><button class="btn s d" aria-label="Entfernen" onclick="delX('${x.id}')">×</button></div>`}));
+ A.sort((a,b)=>a.n.localeCompare(b.n,'de'));
  let h=`<div class="wk"><button class="btn" onclick="ws=addD(ws,-7);render()">Vorherige</button><b>${fmt(ws)} – ${fmt(addD(ws,6))}</b><button class="btn" onclick="ws=addD(ws,7);render()">Nächste</button></div>`;
- if(!L.length)return h+'<p class="mut">Für diese Woche ist nichts geplant. Wähle im Kalender Rezepte aus, dann erscheinen die Zutaten hier.</p>'+X;
- h+=L.map(([k,g])=>{const c=S.checked[wk+'|'+k];return `<label class="it ${c?'done':''}" style="margin:0 0 6px"><input type="checkbox" ${c?'checked':''} onchange="chk('${wk}|${e(k).replace(/'/g,"&#39;")}',this.checked)"><span>${g.a?num(g.a)+' ':''}${e(g.u)} ${e(g.n)}</span></label>`}).join('');
- return h+`<div class="row" style="margin-bottom:6px"><button class="btn" onclick="clr('${wk}')">Abhaken zurücksetzen</button></div>`+X;
-}
-function extra(){
- const L=S.extra||[];
- return `<h2 style="margin-top:22px">Weitere Artikel</h2><div style="display:flex;gap:8px;margin-bottom:10px"><input id="xi" placeholder="z. B. Spülmittel, 2 Äpfel" aria-label="Artikel" onkeydown="if(event.key==='Enter')addX()"><button class="btn p" style="white-space:nowrap" onclick="addX()">Hinzufügen</button></div>`+
- L.map(x=>`<div class="it ${x.d?'done':''}"><input type="checkbox" aria-label="Erledigt" ${x.d?'checked':''} onchange="togX('${x.id}',this.checked)"><span style="flex:1">${e(x.t)}</span><button class="btn s d" aria-label="Entfernen" onclick="delX('${x.id}')">×</button></div>`).join('')+
- (L.some(x=>x.d)?`<div class="row"><button class="btn" onclick="clrX()">Erledigte entfernen</button></div>`:'');
+ h+=`<div style="display:flex;gap:8px;margin-bottom:12px"><input id="xi" placeholder="Artikel hinzufügen, z. B. Spülmittel" aria-label="Artikel" onkeydown="if(event.key==='Enter')addX()"><button class="btn p" style="white-space:nowrap" onclick="addX()">Hinzufügen</button></div>`;
+ h+=A.length?A.map(a=>a.h).join(''):'<p class="mut">Noch nichts auf der Liste. Plane Rezepte im Kalender oder füge oben einen Artikel hinzu.</p>';
+ const b=[];
+ if(Object.keys(m).length)b.push(`<button class="btn" onclick="clr('${wk}')">Abhaken zurücksetzen</button>`);
+ if(X.some(x=>x.d))b.push(`<button class="btn" onclick="clrX()">Erledigte eigene Artikel entfernen</button>`);
+ return h+(b.length?`<div class="row">${b.join('')}</div>`:'');
 }
 function addX(){const v=$('xi').value.trim();if(!v){$('xi').focus();return}(S.extra=S.extra||[]).push({id:'x'+Date.now(),t:v,d:0});localSave();render();$('xi').focus()}
 function togX(id,v){const x=(S.extra||[]).find(y=>y.id===id);if(x){x.d=v?1:0;localSave();render()}}
