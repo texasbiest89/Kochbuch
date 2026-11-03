@@ -93,8 +93,8 @@ const w=async f=>{try{await f()}catch(x){alert('Speichern nicht möglich ('+(x&&
 const pDay=k=>w(async()=>{if(!DB)return localSave();const ids=S.plan[k]||[];if(ids.length)await DB.doc('days/'+k).set({ids});else await DB.doc('days/'+k).delete()});
 const pChk=wk=>w(async()=>{if(!DB)return localSave();const keys=Object.keys(S.checked).filter(k=>k.startsWith(wk+'|')).map(k=>k.slice(wk.length+1));await DB.doc('checks/'+wk).set({keys})});
 function st(){$('st').innerHTML='Gespeichert auf diesem Gerät · <button class="btn s" onclick="exportD()">Backup speichern</button> <button class="btn s" onclick="$(\'imp\').click()">Backup laden</button>'}
-function exportD(){const b=new Blob([JSON.stringify({recipes:S.recipes,plan:S.plan,checked:S.checked,extra:S.extra||[]})],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='kochbuch-backup.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000)}
-function importD(inp){const f=inp.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{try{const j=JSON.parse(rd.result);const m=new Map(S.recipes.map(r=>[r.id,r]));(j.recipes||[]).forEach(r=>m.set(r.id,r));S.recipes=[...m.values()];for(const k in j.plan||{})S.plan[k]=[...new Set([...(S.plan[k]||[]),...j.plan[k]])];Object.assign(S.checked,j.checked||{});{const ex=new Map((S.extra||[]).map(x=>[x.id,x]));(j.extra||[]).forEach(x=>ex.set(x.id,x));S.extra=[...ex.values()]}localSave();render();alert('Backup geladen.')}catch(_){alert('Die Datei konnte nicht gelesen werden.')}inp.value=''};rd.readAsText(f)}
+function exportD(){const b=new Blob([JSON.stringify({recipes:S.recipes,plan:S.plan,checked:S.checked,extra:S.extra||[],pantry:S.pantry||[]})],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='kochbuch-backup.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000)}
+function importD(inp){const f=inp.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{try{const j=JSON.parse(rd.result);const m=new Map(S.recipes.map(r=>[r.id,r]));(j.recipes||[]).forEach(r=>m.set(r.id,r));S.recipes=[...m.values()];for(const k in j.plan||{})S.plan[k]=[...new Map([...(S.plan[k]||[]),...j.plan[k]].map(x=>[JSON.stringify(x),x])).values()];Object.assign(S.checked,j.checked||{});{const ex=new Map((S.extra||[]).map(x=>[x.id,x]));(j.extra||[]).forEach(x=>ex.set(x.id,x));S.extra=[...ex.values()]}S.pantry=[...new Set([...(S.pantry||[]),...(j.pantry||[])])];localSave();render();alert('Backup geladen.')}catch(_){alert('Die Datei konnte nicht gelesen werden.')}inp.value=''};rd.readAsText(f)}
 const R=id=>S.recipes.find(r=>r.id===id);
 
 function render(){st();
@@ -111,24 +111,33 @@ function cal(){
  const t=iso(new Date());
  let h=`<div class="wk"><button class="btn" onclick="ws=addD(ws,-7);render()">Vorherige</button><b>${fmt(ws)} – ${fmt(addD(ws,6))}</b><button class="btn" onclick="ws=addD(ws,7);render()">Nächste</button></div>`;
  for(let i=0;i<7;i++){const d=addD(ws,i),k=iso(d),ids=S.plan[k]||[];
-  h+=`<div class="day ${k===t?'today':''}"><div><div class="dn">${DN[i]}</div><div class="mut">${fmt(d)}</div></div><div class="cn">${ids.map((id,j)=>R(id)?`<span class="chip"><span onclick="viewR('${id}')">${e(R(id).name)}</span><button aria-label="Entfernen" onclick="rmP('${k}',${j})">×</button></span>`:'').join('')||'<span class="mut">Nichts geplant</span>'}</div><button class="btn s" onclick="pick('${k}')">+ Rezept</button></div>`}
+  h+=`<div class="day ${k===t?'today':''}"><div><div class="dn">${DN[i]}</div><div class="mut">${fmt(d)}</div></div><div class="cn">${ids.map((x,j)=>{const {id,p}=ent(x),r=R(id);return r?`<span class="chip"><span onclick="viewR('${id}')">${e(r.name)}</span><button aria-label="Weniger Portionen" onclick="chP('${k}',${j},-1)">−</button><b>${p||r.serv}</b><button aria-label="Mehr Portionen" onclick="chP('${k}',${j},1)">+</button><span class="mut">Pers.</span><button aria-label="Entfernen" onclick="rmP('${k}',${j})">×</button></span>`:''}).join('')||'<span class="mut">Nichts geplant</span>'}</div><button class="btn s" onclick="pick('${k}')">+ Rezept</button></div>`}
  return h;
+}
+const pan=()=>S.pantry||[];
+const inPan=n=>pan().some(p=>p.toLowerCase()===String(n).trim().toLowerCase());
+function addPan(n){n=String(n||'').trim();if(!n||inPan(n))return;(S.pantry=S.pantry||[]).push(n);S.pantry.sort((a,b)=>a.localeCompare(b,'de'));localSave();render()}
+function rmPan(i){S.pantry.splice(i,1);localSave();render();vorrat()}
+function addPanI(){addPan($('pi').value);vorrat();$('pi').focus()}
+function vorrat(){
+ open_(`<h2>Vorrat zu Hause</h2><p class="mut">Zutaten auf dieser Liste landen nicht auf der Einkaufsliste, z. B. Mehl oder Salz. Der Name muss zur Zutat im Rezept passen.</p><div style="display:flex;gap:8px;margin-bottom:12px"><input id="pi" placeholder="z. B. Mehl" aria-label="Vorrat" onkeydown="if(event.key==='Enter')addPanI()"><button class="btn p" style="white-space:nowrap" onclick="addPanI()">Hinzufügen</button></div>`+(pan().length?pan().map((p,i)=>`<div class="it"><span style="flex:1">${e(p)}</span><button class="btn s d" aria-label="Entfernen" onclick="rmPan(${i})">×</button></div>`).join(''):'<p class="mut">Noch leer.</p>')+`<div class="row"><button class="btn" onclick="close_()">Schließen</button></div>`);
 }
 function shop(){
  const m={};
- for(let i=0;i<7;i++)(S.plan[iso(addD(ws,i))]||[]).forEach(id=>{const r=R(id);if(!r)return;r.ing.forEach(g=>{const n=g.n.trim();if(!n)return;const u=g.u==='-'?'':g.u,k=n.toLowerCase()+'|'+u;m[k]=m[k]||{n,u,a:0};m[k].a+=parseFloat(g.a)||0})});
+ for(let i=0;i<7;i++)(S.plan[iso(addD(ws,i))]||[]).forEach(x0=>{const {id,p}=ent(x0),r=R(id);if(!r)return;const f=(p||r.serv)/(r.serv||1);r.ing.forEach(g=>{const n=g.n.trim();if(!n)return;const u=g.u==='-'?'':g.u,k=n.toLowerCase()+'|'+u;m[k]=m[k]||{n,u,a:0};m[k].a+=(parseFloat(g.a)||0)*f})});
  const wk=iso(ws),A=[];
- Object.entries(m).forEach(([k,g])=>{const c=S.checked[wk+'|'+k];A.push({n:g.n,h:`<label class="it ${c?'done':''}"><input type="checkbox" ${c?'checked':''} onchange="chk('${wk}|${e(k).replace(/'/g,"&#39;")}',this.checked)"><span>${[g.a?num(g.a):'',g.u,g.n].filter(Boolean).map(e).join(' ')}</span></label>`})});
+ const hid=Object.values(m).filter(g=>inPan(g.n)).length;
+ Object.entries(m).forEach(([k,g])=>{if(inPan(g.n))return;const c=S.checked[wk+'|'+k];A.push({n:g.n,h:`<label class="it ${c?'done':''}"><input type="checkbox" ${c?'checked':''} onchange="chk('${wk}|${e(k).replace(/'/g,"&#39;")}',this.checked)"><span style="flex:1">${[g.a?num(g.a):'',g.u,g.n].filter(Boolean).map(e).join(' ')}</span><button class="btn s" data-n="${e(g.n)}" onclick="addPan(this.dataset.n)" aria-label="Habe ich zu Hause" title="Habe ich zu Hause">🏠</button></label>`})});
  const X=S.extra||[];
  X.forEach(x=>A.push({n:x.t,h:`<div class="it ${x.d?'done':''}"><input type="checkbox" aria-label="Erledigt" ${x.d?'checked':''} onchange="togX('${x.id}',this.checked)"><span style="flex:1">${e(x.t)}</span><button class="btn s d" aria-label="Entfernen" onclick="delX('${x.id}')">×</button></div>`}));
  A.sort((a,b)=>a.n.localeCompare(b.n,'de'));
  let h=`<div class="wk"><button class="btn" onclick="ws=addD(ws,-7);render()">Vorherige</button><b>${fmt(ws)} – ${fmt(addD(ws,6))}</b><button class="btn" onclick="ws=addD(ws,7);render()">Nächste</button></div>`;
  h+=`<div style="display:flex;gap:8px;margin-bottom:12px"><input id="xi" placeholder="Artikel hinzufügen, z. B. Spülmittel" aria-label="Artikel" onkeydown="if(event.key==='Enter')addX()"><button class="btn p" style="white-space:nowrap" onclick="addX()">Hinzufügen</button></div>`;
  h+=A.length?A.map(a=>a.h).join(''):'<p class="mut">Noch nichts auf der Liste. Plane Rezepte im Kalender oder füge oben einen Artikel hinzu.</p>';
- const b=[];
+ const b=[`<button class="btn" onclick="vorrat()">Vorrat verwalten${pan().length?' ('+pan().length+')':''}</button>`];
  if(Object.keys(m).length)b.push(`<button class="btn" onclick="clr('${wk}')">Abhaken zurücksetzen</button>`);
  if(X.some(x=>x.d))b.push(`<button class="btn" onclick="clrX()">Erledigte eigene Artikel entfernen</button>`);
- return h+(b.length?`<div class="row">${b.join('')}</div>`:'');
+ return h+(hid?`<p class="mut" style="margin-top:10px">${hid} Zutat${hid>1?'en':''} aus Rezepten fehlt auf der Liste, weil sie im Vorrat ist.</p>`:'')+(b.length?`<div class="row">${b.join('')}</div>`:'');
 }
 function addX(){const v=$('xi').value.trim();if(!v){$('xi').focus();return}(S.extra=S.extra||[]).push({id:'x'+Date.now(),t:v,d:0});localSave();render();$('xi').focus()}
 function togX(id,v){const x=(S.extra||[]).find(y=>y.id===id);if(x){x.d=v?1:0;localSave();render()}}
@@ -142,16 +151,24 @@ function close_(){$('ov').classList.remove('on')}
 $('ov').addEventListener('click',ev=>{if(ev.target.id==='ov')close_()});
 document.addEventListener('keydown',ev=>{if(ev.key==='Escape')close_()});
 function pick(k){
- open_(`<h2>Rezept für ${new Date(k+'T12:00').toLocaleDateString('de-DE',{weekday:'long',day:'numeric',month:'long'})}</h2>`+(S.recipes.length?S.recipes.map(r=>`<button class="rc" style="width:100%;margin-bottom:8px" onclick="addP('${k}','${r.id}')"><span class="tag ${r.type==='Backen'?'b':''}">${r.type}</span> <b style="display:inline">${e(r.name)}</b></button>`).join(''):'<p class="mut">Die Bibliothek ist leer.</p>')+`<div class="row"><button class="btn" onclick="close_()">Abbrechen</button></div>`);
+ open_(`<h2>Rezept für ${new Date(k+'T12:00').toLocaleDateString('de-DE',{weekday:'long',day:'numeric',month:'long'})}</h2>`+(S.recipes.length?S.recipes.map(r=>`<button class="rc" style="width:100%;margin-bottom:8px" onclick="portion('${k}','${r.id}')"><span class="tag ${r.type==='Backen'?'b':''}">${r.type}</span> <b style="display:inline">${e(r.name)}</b></button>`).join(''):'<p class="mut">Die Bibliothek ist leer.</p>')+`<div class="row"><button class="btn" onclick="close_()">Abbrechen</button></div>`);
 }
+const ent=x=>typeof x==='string'?{id:x,p:null}:x;
+function portion(k,id){
+ const r=R(id);if(!k||!r)return;
+ open_(`<h2>${e(r.name)}</h2><p class="mut">${new Date(k+'T12:00').toLocaleDateString('de-DE',{weekday:'long',day:'numeric',month:'long'})}. Das Rezept ist für ${r.serv} Portionen angelegt.</p><label for="pp">Für wie viele Personen kochst du?</label><input id="pp" type="number" inputmode="numeric" min="1" step="1" value="${r.serv}" onkeydown="if(event.key==='Enter')confP('${k}','${id}')"><div class="row"><button class="btn p" onclick="confP('${k}','${id}')">Hinzufügen</button><button class="btn" onclick="close_()">Abbrechen</button></div>`);
+ $('pp').select();
+}
+function confP(k,id){const r=R(id);const p=Math.max(1,Math.round(parseFloat($('pp').value))||r.serv);(S.plan[k]=S.plan[k]||[]).push({id,p});close_();render();pDay(k)}
+function chP(k,j,d){const x=ent(S.plan[k][j]),r=R(x.id);x.p=Math.max(1,(x.p||r.serv)+d);S.plan[k][j]=x;render();pDay(k)}
 function addP(k,id){if(!k)return;(S.plan[k]=S.plan[k]||[]).push(id);close_();render();pDay(k)}
 function viewR(id){
  const r=R(id);if(!r)return;
  open_(`${r.img?`<img class="th" src="${r.img}" alt="${e(r.name)}">`:''}<span class="tag ${r.type==='Backen'?'b':''}">${r.type}</span><h2 style="margin-top:8px">${e(r.name)}</h2><div class="mut">${r.serv} Portionen</div><h2 style="margin-top:14px;font-size:16px">Zutaten</h2><ul class="ing">${r.ing.map(g=>`<li>${g.a?num(+g.a)+' ':''}${g.u==='-'?'':e(g.u)} ${e(g.n)}</li>`).join('')}</ul><h2 style="font-size:16px">Zubereitung</h2><pre>${e(r.steps)||'–'}</pre>
- <label>Zum Kalender hinzufügen</label><div style="display:flex;gap:8px"><input type="date" id="pd" value="${iso(new Date())}"><button class="btn p" onclick="addP($('pd').value,'${id}')">Hinzufügen</button></div>
+ <label>Zum Kalender hinzufügen</label><div style="display:flex;gap:8px"><input type="date" id="pd" value="${iso(new Date())}"><button class="btn p" onclick="portion($('pd').value,'${id}')">Hinzufügen</button></div>
  <div class="row"><button class="btn" onclick="editR('${id}')">Bearbeiten</button><button class="btn d" onclick="delR('${id}')">Löschen</button><button class="btn" onclick="close_()">Schließen</button></div>`);
 }
-function delR(id){if(!confirm('Rezept wirklich löschen?'))return;S.recipes=S.recipes.filter(r=>r.id!==id);close_();if(DB)w(()=>DB.doc('recipes/'+id).delete());for(const k in S.plan)if(S.plan[k].includes(id)){S.plan[k]=S.plan[k].filter(x=>x!==id);pDay(k)}if(!DB)localSave();render()}
+function delR(id){if(!confirm('Rezept wirklich löschen?'))return;S.recipes=S.recipes.filter(r=>r.id!==id);close_();if(DB)w(()=>DB.doc('recipes/'+id).delete());for(const k in S.plan)if(S.plan[k].some(x=>ent(x).id===id)){S.plan[k]=S.plan[k].filter(x=>ent(x).id!==id);pDay(k)}if(!DB)localSave();render()}
 const irow=g=>`<div class="ir"><input type="number" min="0" step="any" placeholder="Menge" aria-label="Menge" value="${g.a||''}"><select aria-label="Einheit">${UN.map(u=>`<option ${u===g.u?'selected':''}>${u}</option>`).join('')}</select><input placeholder="Zutat" aria-label="Zutat" value="${e(g.n)}"><button class="btn s" aria-label="Zeile entfernen" onclick="this.parentNode.remove()">×</button></div>`;
 function editR(id){
  const r=id?R(id):{name:'',type:'Kochen',serv:4,ing:[{a:'',u:'g',n:''}],steps:''};
