@@ -77,7 +77,7 @@ ul.ing{padding-left:20px;margin:6px 0 12px}
 <input type="file" id="imp" accept=".json,application/json" hidden onchange="importD(this)">
 <div id="ov"><div id="md" role="dialog" aria-modal="true"></div></div>
 <script>
-const UN=['g','kg','ml','l','EL','TL','Stk','Prise','-'];
+const UN=['g','kg','ml','l','EL','TL','Stk','Dose','Prise','-'];
 const DN=['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'];
 const e=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const $=id=>document.getElementById(id);
